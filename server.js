@@ -76,7 +76,7 @@ const ensureAdmin = async () => {
 
 const start = async () => {
   await connectDB();
-  await sequelize.sync();
+  await sequelize.sync({ alter: true });
   await ensureAdmin();
   app.listen(PORT, HOST, () => console.log(`Server running on http://${HOST}:${PORT}`));
 };

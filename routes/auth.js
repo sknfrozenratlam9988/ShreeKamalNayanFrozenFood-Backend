@@ -4,8 +4,8 @@ import Admin from "../models/Admin.js";
 
 const router = express.Router();
 
-const generateToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+const generateToken = (id, role) =>
+  jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
 // @route   POST /api/auth/login
 router.post("/login", async (req, res) => {
@@ -21,7 +21,8 @@ router.post("/login", async (req, res) => {
       _id: admin.id,
       name: admin.name,
       email: admin.email,
-      token: generateToken(admin.id),
+      role: admin.role,
+      token: generateToken(admin.id, admin.role),
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
