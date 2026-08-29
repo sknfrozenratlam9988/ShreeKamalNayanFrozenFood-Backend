@@ -3,11 +3,15 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+// Only log non-sensitive info — never log PG_PASSWORD or full credentials
 console.log("PG_DATABASE =", process.env.PG_DATABASE);
-console.log("PG_USER =", process.env.PG_USER);
-console.log("PG_PASSWORD =", process.env.PG_PASSWORD);
 console.log("PG_HOST =", process.env.PG_HOST);
 console.log("PG_PORT =", process.env.PG_PORT);
+
+if (!process.env.PG_DATABASE || !process.env.PG_USER || !process.env.PG_PASSWORD) {
+  console.error("Missing required DB environment variables (PG_DATABASE, PG_USER, PG_PASSWORD)");
+  process.exit(1);
+}
 
 export const sequelize = new Sequelize(
   process.env.PG_DATABASE,
@@ -20,6 +24,7 @@ export const sequelize = new Sequelize(
     logging: false,
   }
 );
+
 export const connectDB = async () => {
   try {
     await sequelize.authenticate();

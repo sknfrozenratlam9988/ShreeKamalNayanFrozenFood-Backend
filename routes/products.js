@@ -1,5 +1,6 @@
 import express from "express";
 import { Op } from "sequelize";
+import { body, validationResult } from "express-validator";
 import Product from "../models/Product.js";
 import { protect } from "../middleware/auth.js";
 import upload from "../middleware/upload.js";
@@ -13,6 +14,61 @@ const makeSlug = (name) =>
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
+
+const ALLOWED_FIELDS = [
+  "name",
+  "slug",
+  "category",
+  "shortDescription",
+  "description",
+  "price",
+  "unit",
+  "stock",
+  "images",
+  "thumbnail",
+  "nutrition",
+  "features",
+  "storageInstructions",
+  "isFeatured",
+  "isActive",
+  "rating",
+];
+const pickAllowedFields = (source) => {
+  const result = {};
+  for (const key of ALLOWED_FIELDS) {
+    if (source[key] !== undefined) result[key] = source[key];
+  }
+  return result;
+};
+
+const ALLOWED_CATEGORIES = ["Frozen Vegetables", "Frozen Fruits", "Ready To Eat", "Other"];
+
+const validateProduct = [
+  body("name").optional().isString().trim().isLength({ min: 1, max: 200 }),
+  body("slug").optional().isString().trim().isLength({ max: 200 }),
+  body("category").optional().isIn(ALLOWED_CATEGORIES),
+  body("shortDescription").optional().isString().trim().isLength({ max: 300 }),
+  body("description").optional().isString().trim().isLength({ max: 5000 }),
+  body("price").optional().isFloat({ min: 0 }),
+  body("unit").optional().isString().trim().isLength({ max: 100 }),
+  body("stock").optional().isInt({ min: 0 }),
+  body("thumbnail").optional().isString().trim().isLength({ max: 500 }),
+  body("storageInstructions").optional().isString().trim().isLength({ max: 500 }),
+  body("isFeatured").optional().isBoolean(),
+  body("isActive").optional().isBoolean(),
+  body("rating").optional().isFloat({ min: 0, max: 5 }),
+  // images/nutrition/features are JSONB — checked as arrays/objects, not strict-typed here
+  body("images").optional().isArray(),
+  body("nutrition").optional().isObject(),
+  body("features").optional().isArray(),
+];
+const checkValidation = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ message: "Invalid input", errors: errors.array() });
+  }
+  next();
+};
 
 // @route   GET /api/products   (public - list, supports ?category=&search=&featured=)
 router.get("/", async (req, res) => {
@@ -31,7 +87,8 @@ router.get("/", async (req, res) => {
     const products = await Product.findAll({ where, order: [["createdAt", "DESC"]] });
     res.json(products);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Get products error:", error);
+    res.status(500).json({ message: "Something went wrong on the server" });
   }
 });
 
@@ -41,7 +98,8 @@ router.get("/admin/all", protect, async (req, res) => {
     const products = await Product.findAll({ order: [["createdAt", "DESC"]] });
     res.json(products);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Admin get products error:", error);
+    res.status(500).json({ message: "Something went wrong on the server" });
   }
 });
 
@@ -52,38 +110,44 @@ router.get("/:slug", async (req, res) => {
     if (!product) return res.status(404).json({ message: "Product not found" });
     res.json(product);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Get product by slug error:", error);
+    res.status(500).json({ message: "Something went wrong on the server" });
   }
 });
 
 // @route   POST /api/products  (admin - create)
-router.post("/", protect, async (req, res) => {
+router.post("/", protect, validateProduct, checkValidation, async (req, res) => {
   try {
-    const body = { ...req.body };
+    const body = pickAllowedFields(req.body);
+    if (!body.name) return res.status(400).json({ message: "Product name is required" });
     if (!body.slug) body.slug = makeSlug(body.name);
+    if (!body.thumbnail) return res.status(400).json({ message: "Thumbnail is required" });
+
     const product = await Product.create(body);
     res.status(201).json(product);
   } catch (error) {
     if (error.name === "SequelizeUniqueConstraintError") {
       return res.status(400).json({ message: "A product with this name/slug already exists" });
     }
-    res.status(400).json({ message: error.message });
+    console.error("Create product error:", error);
+    res.status(400).json({ message: "Could not create product" });
   }
 });
 
 // @route   PUT /api/products/:id  (admin - update)
-router.put("/:id", protect, async (req, res) => {
+router.put("/:id", protect, validateProduct, checkValidation, async (req, res) => {
   try {
     const product = await Product.findByPk(req.params.id);
     if (!product) return res.status(404).json({ message: "Product not found" });
 
-    const body = { ...req.body };
+    const body = pickAllowedFields(req.body);
     if (body.name && !body.slug) body.slug = makeSlug(body.name);
 
     await product.update(body);
     res.json(product);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error("Update product error:", error);
+    res.status(400).json({ message: "Could not update product" });
   }
 });
 
@@ -95,7 +159,8 @@ router.delete("/:id", protect, async (req, res) => {
     await product.destroy();
     res.json({ message: "Product deleted", _id: req.params.id });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Delete product error:", error);
+    res.status(500).json({ message: "Something went wrong on the server" });
   }
 });
 
@@ -116,7 +181,7 @@ router.post("/upload/images", protect, (req, res) => {
       res.json({ urls });
     } catch (error) {
       console.error("Route error:", error);
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: "Image upload failed" });
     }
   });
 });
