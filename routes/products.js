@@ -3,7 +3,10 @@ import { Op } from "sequelize";
 import { body, validationResult } from "express-validator";
 import Product from "../models/Product.js";
 import { protect } from "../middleware/auth.js";
-import upload from "../middleware/upload.js";
+// import upload from "../middleware/upload.js";
+import sharp from "sharp";
+import path from "path";
+import upload, { uploadDirPath } from "../middleware/upload.js";
 
 const router = express.Router();
 
@@ -166,7 +169,7 @@ router.delete("/:id", protect, async (req, res) => {
 
 // @route   POST /api/products/upload/images  (admin - image upload, returns URLs)
 router.post("/upload/images", protect, (req, res) => {
-  upload.array("images", 6)(req, res, (err) => {
+  upload.array("images", 6)(req, res, async (err) => {
     if (err) {
       console.error("Upload error:", err);
       return res.status(400).json({ message: err.message || "Image upload failed" });
@@ -177,7 +180,21 @@ router.post("/upload/images", protect, (req, res) => {
         return res.status(400).json({ message: "No files uploaded" });
       }
 
-      const urls = req.files.map((f) => `/uploads/${f.filename}`);
+      const urls = [];
+
+      for (const file of req.files) {
+        const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.webp`;
+        const outputPath = path.join(uploadDirPath, filename);
+
+        // Resize to max 1200px width, convert to WebP, compress to ~80% quality
+        await sharp(file.buffer)
+          .resize({ width: 1200, withoutEnlargement: true })
+          .webp({ quality: 80 })
+          .toFile(outputPath);
+
+        urls.push(`/uploads/${filename}`);
+      }
+
       res.json({ urls });
     } catch (error) {
       console.error("Route error:", error);
@@ -185,5 +202,4 @@ router.post("/upload/images", protect, (req, res) => {
     }
   });
 });
-
 export default router;

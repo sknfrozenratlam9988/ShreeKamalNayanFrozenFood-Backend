@@ -5,13 +5,8 @@ import fs from "fs";
 const uploadDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  },
-});
+// Store in memory first — we compress with sharp before writing to disk
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   console.log("Uploading file:", file.originalname, file.mimetype);
@@ -42,4 +37,5 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+export const uploadDirPath = uploadDir;
 export default upload;
