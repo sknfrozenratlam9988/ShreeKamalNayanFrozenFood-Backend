@@ -10,7 +10,8 @@ import Admin from "./models/Admin.js";
 import productRoutes from "./routes/products.js";
 import authRoutes from "./routes/auth.js";
 import cookieParser from "cookie-parser";
-
+import orderRoutes from "./routes/order.js";
+import contactRoutes from "./routes/contact.js";
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -58,6 +59,11 @@ app.use("/auth", authRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/products", productRoutes);
 app.use("/api/products", productRoutes);
+app.use("/orders", orderRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/contact", contactRoutes);
+app.use("/api/contact", contactRoutes)
+
 
 app.get("/", (req, res) => {
   res.send("Shree Kamal Nayan Frozen Food LLP API is running");
