@@ -439,27 +439,28 @@ router.post("/upload/images", protect, (req, res) => {
         });
       }
 
-      const urls = [];
+            const urls = [];
 
       for (const file of req.files) {
-        const filename = `${Date.now()}-${Math.round(
-          Math.random() * 1e9
-        )}.png`;
+        const baseName = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
 
-        const outputPath = path.join(uploadDirPath, filename);
-
+        // Full-size image — WebP, max 1200px wide
+        const fullFilename = `${baseName}.webp`;
         await sharp(file.buffer)
-          .resize({
-            width: 1200,
-            withoutEnlargement: true,
-          })
-          .png({
-            compressionLevel: 6,
-          })
-          .toFile(outputPath);
+          .resize({ width: 1200, withoutEnlargement: true })
+          .webp({ quality: 78 })
+          .toFile(path.join(uploadDirPath, fullFilename));
 
-        urls.push(`/uploads/${filename}`);
+        // Thumbnail — WebP, max 400px wide, for product listing/cards
+        const thumbFilename = `${baseName}-thumb.webp`;
+        await sharp(file.buffer)
+          .resize({ width: 400, withoutEnlargement: true })
+          .webp({ quality: 72 })
+          .toFile(path.join(uploadDirPath, thumbFilename));
+
+        urls.push(`/uploads/${fullFilename}`);
       }
+      
 
       return res.status(200).json({
         urls,

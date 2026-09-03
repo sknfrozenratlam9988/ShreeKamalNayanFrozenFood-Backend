@@ -50,8 +50,10 @@ app.use(cookieParser());
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"), {
+    maxAge: "30d",
     setHeaders: (res) => {
       res.set("X-Content-Type-Options", "nosniff");
+      res.set("Cache-Control", "public, max-age=2592000, immutable");
     },
   })
 );
